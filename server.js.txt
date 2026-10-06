@@ -1,0 +1,204 @@
+// server.js - Node.js & Express API Backend Engine
+
+const express = require('express');
+const path = require('path');
+const Queue = require('./Queue');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware to parse incoming JSON and static assets
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Global Data Structures
+const masterRecords = []; // Dynamic Array storing all historical records - Vector equivalent in JS
+const medicalQueue = new Queue('Medical');
+const fireQueue = new Queue('Fire');
+const policeQueue = new Queue('Police');
+
+// Helper Function: Validate duplicate ID and positive integer rule
+function validateID(id) {
+    const numId = Number(id);
+    if (isNaN(numId) || !Number.isInteger(numId) || numId <= 0) {
+        return { valid: false, message: 'Request ID must be a positive integer.' };
+    }
+    const duplicate = masterRecords.some(req => req.id === numId);
+    if (duplicate) {
+        return { valid: false, message: `Duplicate Request ID! ID ${numId} already exists in the system.` };
+    }
+    return { valid: true };
+}
+
+// Helper Function: Validate 10-digit phone numbers
+function validatePhone(phone) {
+    const phoneRegex = /^[0-9]{10}$/;
+    return phoneRegex.test(phone);
+}
+
+// -------------------------------------------------------------
+// REST API ENDPOINTS
+// -------------------------------------------------------------
+
+// 1. Feature: Register a New Emergency Request
+app.post('/api/requests', (req, res) => {
+    const { id, requesterName, phoneNumber, emergencyType, location, description, priority } = req.body;
+
+    // Edge Case: Validate duplicate or invalid ID
+    const idValidation = validateID(id);
+    if (!idValidation.valid) {
+        return res.status(400).json({ success: false, error: idValidation.message });
+    }
+
+    // Edge Case: Validate requester name
+    if (!requesterName || requesterName.trim() === '') {
+        return res.status(400).json({ success: false, error: 'Requester name cannot be empty.' });
+    }
+
+    // Edge Case: Validate 10-digit phone number
+    if (!validatePhone(phoneNumber)) {
+        return res.status(400).json({ success: false, error: 'Invalid phone number! Must contain exactly 10 digits.' });
+    }
+
+    // Edge Case: Validate emergency category
+    const validTypes = ['Medical', 'Fire', 'Police'];
+    if (!validTypes.includes(emergencyType)) {
+        return res.status(400).json({ success: false, error: 'Invalid emergency type! Select Medical, Fire, or Police.' });
+    }
+
+    if (!location || location.trim() === '') {
+        return res.status(400).json({ success: false, error: 'Location field cannot be empty.' });
+    }
+
+    const newRequest = {
+        id: Number(id),
+        requesterName: requesterName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        emergencyType,
+        location: location.trim(),
+        description: description ? description.trim() : 'N/A',
+        priority: priority || 'Medium',
+        isProcessed: false,
+        timestamp: new Date().toLocaleTimeString()
+    };
+
+    // Store in Master Records Dynamic Array
+    masterRecords.push(newRequest);
+
+    // Enqueue into appropriate department FIFO Queue - O(1)
+    if (emergencyType === 'Medical') {
+        medicalQueue.enqueue(newRequest);
+    } else if (emergencyType === 'Fire') {
+        fireQueue.enqueue(newRequest);
+    } else if (emergencyType === 'Police') {
+        policeQueue.enqueue(newRequest);
+    }
+
+    return res.status(201).json({
+        success: true,
+        message: `Emergency Request #${newRequest.id} successfully queued under ${emergencyType}!`,
+        data: newRequest
+    });
+});
+
+// 2. Feature: Display All Pending Requests Across Department Queues
+app.get('/api/requests/pending', (req, res) => {
+    return res.status(200).json({
+        success: true,
+        pending: {
+            Medical: medicalQueue.toArray(),
+            Fire: fireQueue.toArray(),
+            Police: policeQueue.toArray()
+        }
+    });
+});
+
+// 3. Feature: Process the Next Request in FIFO Order
+app.post('/api/requests/process', (req, res) => {
+    const { emergencyType } = req.body;
+
+    let targetQueue = null;
+    if (emergencyType === 'Medical') targetQueue = medicalQueue;
+    else if (emergencyType === 'Fire') targetQueue = fireQueue;
+    else if (emergencyType === 'Police') targetQueue = policeQueue;
+    else {
+        return res.status(400).json({ success: false, error: 'Invalid emergency department selected.' });
+    }
+
+    // Edge Case: Processing when selected queue is empty
+    if (targetQueue.isEmpty()) {
+        return res.status(400).json({
+            success: false,
+            error: `The ${emergencyType} emergency queue is currently empty. No pending requests to process!`
+        });
+    }
+
+    // Dequeue top element (FIFO) - O(1)
+    const processedRequest = targetQueue.dequeue();
+
+    // Update process status inside master records array
+    const record = masterRecords.find(item => item.id === processedRequest.id);
+    if (record) {
+        record.isProcessed = true;
+    }
+
+    return res.status(200).json({
+        success: true,
+        message: `Dispatched & Processed Request #${processedRequest.id} (${emergencyType} Emergency)`,
+        data: processedRequest
+    });
+});
+
+// 4. Feature: Search Request by ID
+app.get('/api/requests/search/:id', (req, res) => {
+    const searchId = Number(req.params.id);
+    if (isNaN(searchId)) {
+        return res.status(400).json({ success: false, error: 'Invalid ID parameter.' });
+    }
+
+    // Linear search across master records array - O(N)
+    const foundRecord = masterRecords.find(item => item.id === searchId);
+
+    if (!foundRecord) {
+        return res.status(404).json({ success: false, error: 'Request ID not found.' });
+    }
+
+    return res.status(200).json({
+        success: true,
+        data: foundRecord
+    });
+});
+
+// 5. Feature: Display Queue Status and Category Summary Metrics (Map simulation)
+app.get('/api/requests/status', (req, res) => {
+    const categoryCounts = {
+        Medical: 0,
+        Fire: 0,
+        Police: 0
+    };
+
+    masterRecords.forEach(item => {
+        if (categoryCounts.hasOwnProperty(item.emergencyType)) {
+            categoryCounts[item.emergencyType]++;
+        }
+    });
+
+    return res.status(200).json({
+        success: true,
+        queueSizes: {
+            Medical: medicalQueue.size(),
+            Fire: fireQueue.size(),
+            Police: policeQueue.size(),
+            TotalPending: medicalQueue.size() + fireQueue.size() + policeQueue.size()
+        },
+        historicalTotals: categoryCounts,
+        totalMasterRecords: masterRecords.length
+    });
+});
+
+// Start Server
+app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(` Emergency Service Management Server running on port ${PORT}`);
+    console.log(`====================================================`);
+});

@@ -1,0 +1,72 @@
+// Queue.js - Implementation of Queue ADT (First-In, First-Out)
+
+class RequestNode {
+    constructor(data) {
+        this.data = data;
+        this.next = null;
+    }
+}
+
+class Queue {
+    constructor(categoryName) {
+        this.category = categoryName;
+        this.frontNode = null;
+        this.rearNode = null;
+        this.count = 0;
+    }
+
+    // Enqueue: Add emergency request to the back of the queue - O(1)
+    enqueue(request) {
+        const newNode = new RequestNode(request);
+        if (this.isEmpty()) {
+            this.frontNode = newNode;
+            this.rearNode = newNode;
+        } else {
+            this.rearNode.next = newNode;
+            this.rearNode = newNode;
+        }
+        this.count++;
+    }
+
+    // Dequeue: Process and remove emergency request from the front of the queue - O(1)
+    dequeue() {
+        if (this.isEmpty()) {
+            return null;
+        }
+        const removedData = this.frontNode.data;
+        this.frontNode = this.frontNode.next;
+        if (this.frontNode === null) {
+            this.rearNode = null;
+        }
+        this.count--;
+        return removedData;
+    }
+
+    // Peek: Return top element without removing - O(1)
+    peek() {
+        return this.isEmpty() ? null : this.frontNode.data;
+    }
+
+    // Check if queue is empty - O(1)
+    isEmpty() {
+        return this.count === 0;
+    }
+
+    // Get number of pending requests - O(1)
+    size() {
+        return this.count;
+    }
+
+    // Return array representation of pending queue items for frontend rendering
+    toArray() {
+        const list = [];
+        let current = this.frontNode;
+        while (current !== null) {
+            list.push(current.data);
+            current = current.next;
+        }
+        return list;
+    }
+}
+
+module.exports = Queue;
