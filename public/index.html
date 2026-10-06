@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Service Management System</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 min-h-screen">
+
+    <!-- Header Banner -->
+    <header class="bg-red-700 text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wide">🚨 Emergency Service Management System</h1>
+                <p class="text-red-200 text-sm">Real-Time Dispatching Engine using Queue ADT & Vector Storage</p>
+            </div>
+            <span class="bg-red-800 text-red-100 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">Live DSA System</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto px-6 py-8">
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-300 mb-6 bg-white rounded-t-lg shadow-sm">
+            <button onclick="switchTab('register')" id="tab-register" class="tab-btn px-6 py-3 font-medium text-red-600 border-b-2 border-red-600">Register Request</button>
+            <button onclick="switchTab('pending')" id="tab-pending" class="tab-btn px-6 py-3 font-medium text-slate-600 hover:text-red-600">Pending Queues</button>
+            <button onclick="switchTab('process')" id="tab-process" class="tab-btn px-6 py-3 font-medium text-slate-600 hover:text-red-600">Process / Dispatch</button>
+            <button onclick="switchTab('search')" id="tab-search" class="tab-btn px-6 py-3 font-medium text-slate-600 hover:text-red-600">Search ID</button>
+            <button onclick="switchTab('status')" id="tab-status" class="tab-btn px-6 py-3 font-medium text-slate-600 hover:text-red-600">Queue Status & Metrics</button>
+        </div>
+
+        <!-- Alert Notification Box -->
+        <div id="alert-box" class="hidden mb-6 p-4 rounded-lg shadow-sm text-sm font-medium"></div>
+
+        <!-- TAB 1: Register Emergency Request -->
+        <section id="sec-register" class="tab-content bg-white p-6 rounded-b-lg shadow-sm">
+            <h2 class="text-xl font-bold mb-4 text-slate-700 border-b pb-2">Register Emergency Request</h2>
+            <form id="form-register" onsubmit="handleRegister(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Request ID (Positive Integer)</label>
+                    <input type="number" id="reg-id" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none" placeholder="e.g. 101">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Requester Name</label>
+                    <input type="text" id="reg-name" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none" placeholder="e.g. Neeraj">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">10-Digit Phone Number</label>
+                    <input type="text" id="reg-phone" required maxlength="10" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none" placeholder="e.g. 9876543210">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Emergency Service Type</label>
+                    <select id="reg-type" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none">
+                        <option value="Medical">Medical</option>
+                        <option value="Fire">Fire</option>
+                        <option value="Police">Police</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Location</label>
+                    <input type="text" id="reg-location" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none" placeholder="e.g. Block A, Sector 5">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Priority Level</label>
+                    <select id="reg-priority" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none">
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold mb-1">Emergency Description</label>
+                    <textarea id="reg-desc" rows="2" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none" placeholder="Brief details about the incident..."></textarea>
+                </div>
+                <div class="md:col-span-2 mt-2">
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2 rounded shadow transition">Submit & Queue Emergency</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- TAB 2: Display Pending Requests -->
+        <section id="sec-pending" class="tab-content hidden bg-white p-6 rounded-b-lg shadow-sm">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-bold text-slate-700">Display Pending Requests (FIFO Order)</h2>
+                <button onclick="fetchPendingRequests()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1 rounded text-sm font-medium">Refresh Queues</button>
+            </div>
+            <div id="pending-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Medical Queue Column -->
+                <div class="border rounded-lg p-4 bg-red-50/50">
+                    <h3 class="font-bold text-red-700 text-lg mb-2 flex justify-between">
+                        🏥 Medical Queue <span id="count-med" class="text-sm bg-red-200 px-2 py-0.5 rounded-full">0</span>
+                    </h3>
+                    <div id="list-med" class="space-y-2 text-sm"></div>
+                </div>
+                <!-- Fire Queue Column -->
+                <div class="border rounded-lg p-4 bg-orange-50/50">
+                    <h3 class="font-bold text-orange-700 text-lg mb-2 flex justify-between">
+                        🔥 Fire Queue <span id="count-fire" class="text-sm bg-orange-200 px-2 py-0.5 rounded-full">0</span>
+                    </h3>
+                    <div id="list-fire" class="space-y-2 text-sm"></div>
+                </div>
+                <!-- Police Queue Column -->
+                <div class="border rounded-lg p-4 bg-blue-50/50">
+                    <h3 class="font-bold text-blue-700 text-lg mb-2 flex justify-between">
+                        🚓 Police Queue <span id="count-pol" class="text-sm bg-blue-200 px-2 py-0.5 rounded-full">0</span>
+                    </h3>
+                    <div id="list-pol" class="space-y-2 text-sm"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: Process Next Request -->
+        <section id="sec-process" class="tab-content hidden bg-white p-6 rounded-b-lg shadow-sm">
+            <h2 class="text-xl font-bold mb-4 text-slate-700 border-b pb-2">Process Next Request (FIFO Pop)</h2>
+            <div class="max-w-md bg-slate-50 p-4 border rounded-lg">
+                <label class="block text-sm font-semibold mb-2">Select Emergency Department Queue</label>
+                <select id="proc-type" class="w-full border rounded px-3 py-2 mb-4">
+                    <option value="Medical">Medical Emergency Queue</option>
+                    <option value="Fire">Fire Emergency Queue</option>
+                    <option value="Police">Police Emergency Queue</option>
+                </select>
+                <button onclick="handleProcess()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded shadow">Dispatch & Pop Next Request</button>
+            </div>
+            <div id="proc-result" class="mt-6 hidden border p-4 rounded-lg bg-green-50 border-green-200"></div>
+        </section>
+
+        <!-- TAB 4: Search Request by ID -->
+        <section id="sec-search" class="tab-content hidden bg-white p-6 rounded-b-lg shadow-sm">
+            <h2 class="text-xl font-bold mb-4 text-slate-700 border-b pb-2">Search Request by ID (Master Vector Lookup)</h2>
+            <div class="flex gap-2 max-w-md mb-6">
+                <input type="number" id="search-id" class="border rounded px-3 py-2 flex-grow outline-none focus:ring-2 focus:ring-red-500" placeholder="Enter Request ID">
+                <button onclick="handleSearch()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-5 py-2 rounded shadow">Search</button>
+            </div>
+            <div id="search-result" class="hidden border rounded-lg p-5 bg-slate-50"></div>
+        </section>
+
+        <!-- TAB 5: Queue Status & Summary Metrics -->
+        <section id="sec-status" class="tab-content hidden bg-white p-6 rounded-b-lg shadow-sm">
+            <h2 class="text-xl font-bold mb-4 text-slate-700 border-b pb-2">Queue Status & Historical Metrics</h2>
+            <div id="status-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </section>
+
+    </main>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        function showAlert(msg, isError = false) {
+            const box = document.getElementById('alert-box');
+            box.className = `mb-6 p-4 rounded-lg shadow-sm text-sm font-medium ${isError ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-green-100 text-green-800 border border-green-200'}`;
+            box.innerText = msg;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 5000);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('text-red-600', 'border-b-2', 'border-red-600');
+                el.classList.add('text-slate-600');
+            });
+
+            document.getElementById(`sec-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.classList.add('text-red-600', 'border-b-2', 'border-red-600');
+            activeBtn.classList.remove('text-slate-600');
+
+            if (tabName === 'pending') fetchPendingRequests();
+            if (tabName === 'status') fetchQueueStatus();
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const data = {
+                id: document.getElementById('reg-id').value,
+                requesterName: document.getElementById('reg-name').value,
+                phoneNumber: document.getElementById('reg-phone').value,
+                emergencyType: document.getElementById('reg-type').value,
+                location: document.getElementById('reg-location').value,
+                priority: document.getElementById('reg-priority').value,
+                description: document.getElementById('reg-desc').value
+            };
+
+            try {
+                const res = await fetch('/api/requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error);
+
+                showAlert(result.message);
+                document.getElementById('form-register').reset();
+            } catch (err) {
+                showAlert(err.message, true);
+            }
+        }
+
+        async function fetchPendingRequests() {
+            try {
+                const res = await fetch('/api/requests/pending');
+                const result = await res.json();
+                if (!result.success) return;
+
+                const renderList = (items, elementId, countId) => {
+                    const listEl = document.getElementById(elementId);
+                    document.getElementById(countId).innerText = items.length;
+                    if (items.length === 0) {
+                        listEl.innerHTML = `<p class="text-slate-400 italic">No pending requests.</p>`;
+                        return;
+                    }
+                    listEl.innerHTML = items.map((item, idx) => `
+                        <div class="bg-white p-3 rounded shadow-sm border">
+                            <div class="flex justify-between font-bold">
+                                <span>#${item.id} - ${item.requesterName}</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-slate-100">${item.priority}</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-1">📍 ${item.location} | 📞 ${item.phoneNumber}</div>
+                        </div>
+                    `).join('');
+                };
+
+                renderList(result.pending.Medical, 'list-med', 'count-med');
+                renderList(result.pending.Fire, 'list-fire', 'count-fire');
+                renderList(result.pending.Police, 'list-pol', 'count-pol');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function handleProcess() {
+            const emergencyType = document.getElementById('proc-type').value;
+            const resEl = document.getElementById('proc-result');
+            try {
+                const res = await fetch('/api/requests/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emergencyType })
+                });
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error);
+
+                resEl.className = "mt-6 border p-4 rounded-lg bg-green-50 border-green-200 block";
+                resEl.innerHTML = `
+                    <h3 class="font-bold text-green-800 text-lg">✅ Request Dispatched Successfully!</h3>
+                    <p class="text-sm text-green-700 mt-1"><strong>ID:</strong> #${result.data.id} | <strong>Requester:</strong> ${result.data.requesterName} | <strong>Location:</strong> ${result.data.location}</p>
+                `;
+                showAlert(result.message);
+            } catch (err) {
+                resEl.className = "mt-6 border p-4 rounded-lg bg-red-50 border-red-200 block text-red-700 text-sm font-semibold";
+                resEl.innerText = `[Error] ${err.message}`;
+            }
+        }
+
+        async function handleSearch() {
+            const id = document.getElementById('search-id').value;
+            const resEl = document.getElementById('search-result');
+            if (!id) return;
+
+            try {
+                const res = await fetch(`/api/requests/search/${id}`);
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error);
+
+                const record = result.data;
+                resEl.classList.remove('hidden');
+                resEl.innerHTML = `
+                    <h3 class="font-bold text-lg mb-2">Request Details #${record.id}</h3>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div><strong>Requester:</strong> ${record.requesterName}</div>
+                        <div><strong>Phone:</strong> ${record.phoneNumber}</div>
+                        <div><strong>Type:</strong> ${record.emergencyType}</div>
+                        <div><strong>Priority:</strong> ${record.priority}</div>
+                        <div><strong>Location:</strong> ${record.location}</div>
+                        <div><strong>Status:</strong> ${record.isProcessed ? '<span class="text-green-600 font-bold">Processed</span>' : '<span class="text-orange-600 font-bold">Pending in Queue</span>'}</div>
+                        <div class="col-span-2"><strong>Description:</strong> ${record.description}</div>
+                    </div>
+                `;
+            } catch (err) {
+                resEl.classList.remove('hidden');
+                resEl.innerHTML = `<p class="text-red-600 font-semibold">${err.message}</p>`;
+            }
+        }
+
+        async function fetchQueueStatus() {
+            try {
+                const res = await fetch('/api/requests/status');
+                const result = await res.json();
+                if (!result.success) return;
+
+                document.getElementById('status-container').innerHTML = `
+                    <div class="border rounded-lg p-4 bg-slate-50">
+                        <h3 class="font-bold text-slate-700 mb-2">Pending Active Queues</h3>
+                        <ul class="space-y-1 text-sm">
+                            <li>Medical Queue: <strong>${result.queueSizes.Medical}</strong></li>
+                            <li>Fire Queue: <strong>${result.queueSizes.Fire}</strong></li>
+                            <li>Police Queue: <strong>${result.queueSizes.Police}</strong></li>
+                            <li class="border-t pt-1 font-bold text-red-600">Total Pending: ${result.queueSizes.TotalPending}</li>
+                        </ul>
+                    </div>
+                    <div class="border rounded-lg p-4 bg-slate-50">
+                        <h3 class="font-bold text-slate-700 mb-2">Historical Total Registered (Map Metrics)</h3>
+                        <ul class="space-y-1 text-sm">
+                            <li>Medical Total: <strong>${result.historicalTotals.Medical}</strong></li>
+                            <li>Fire Total: <strong>${result.historicalTotals.Fire}</strong></li>
+                            <li>Police Total: <strong>${result.historicalTotals.Police}</strong></li>
+                            <li class="border-t pt-1 font-bold">Total Recorded: ${result.totalMasterRecords}</li>
+                        </ul>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>
